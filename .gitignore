@@ -5,3 +5,4 @@ app-cpp/build
 .venv
 .idea
 .clion
+.DS_Store
