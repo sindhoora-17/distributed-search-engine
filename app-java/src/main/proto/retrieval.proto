@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+option java_package = "csc435.app";
+option java_outer_classname = "RetrievalProto";
+
+package retrieval;
+
+service FileRetrieval {
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc ComputeIndex (IndexRequest) returns (IndexResponse);
+  rpc ComputeSearch (SearchRequest) returns (SearchResponse);
+}
+
+message RegisterRequest {
+}
+
+message RegisterResponse {
+  string client_id = 1;
+}
+
+message IndexRequest {
+  string client_id = 1;
+  string document_path = 2;
+  map<string, int32> word_frequencies = 3;
+}
+
+message IndexResponse {
+  string acknowledgement = 1;
+}
+
+message SearchRequest {
+  repeated string terms = 1;
+}
+
+message SearchResult {
+  string document_path = 1;
+  int32 frequency = 2;
+}
+
+message SearchResponse {
+  repeated SearchResult results = 1;
+  int32 total_result_count = 2;
+}

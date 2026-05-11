@@ -1,0 +1,7 @@
+datasets
+app-java/target
+app-cpp/build
+.vscode
+.venv
+.idea
+.clion
