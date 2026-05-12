@@ -1,0 +1,1 @@
+Distributed systems enable scalable communication between multiple clients and servers.

@@ -1,0 +1,1 @@
+Multithreading improves concurrent indexing and search throughput.

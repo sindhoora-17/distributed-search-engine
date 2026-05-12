@@ -31,11 +31,18 @@ The project implements:
 ## Project Structure
 
 ```text
-app-java/
-├── src/main/java/csc435/app/
-├── src/main/proto/
-├── pom.xml
-└── README.md
+## Project Structure
+
+```text
+distributed-file-retrieval-engine/
+├── app-java/
+│   ├── src/main/java/csc435/app/
+│   ├── src/main/proto/
+│   └── pom.xml
+├── datasets/
+│   └── sample_data/
+├── README.md
+└── .gitignore
 ```
 
 ---
@@ -59,13 +66,13 @@ sudo apt install openjdk-21-jdk maven
 
 Large benchmarking datasets used during performance evaluation are not included in this repository due to size limitations.
 
-You can place datasets inside:
+A small sample dataset is provided inside:
 
 ```text
-datasets/
+datasets/sample_data/
 ```
 
-A small sample dataset can also be used for testing and demonstration purposes.
+You can replace the sample dataset with any text-based document collection for indexing and search evaluation.
 
 ---
 

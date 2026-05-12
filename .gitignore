@@ -1,4 +1,6 @@
-datasets
+datasets/*
+!datasets/sample_data/
+!datasets/sample_data/*.txt
 app-java/target
 app-cpp/build
 .vscode
