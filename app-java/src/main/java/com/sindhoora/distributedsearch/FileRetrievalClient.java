@@ -1,6 +1,6 @@
-package csc435.app;
+package com.sindhoora.distributedsearch;
 
-import csc435.app.RetrievalProto.SearchResult;
+import com.sindhoora.distributedsearch.RetrievalProto.SearchResult;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;

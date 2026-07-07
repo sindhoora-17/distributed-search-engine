@@ -1,5 +1,5 @@
 
-package csc435.app;
+package com.sindhoora.distributedsearch;
 
 import io.grpc.ManagedChannel;
 import io.grpc.netty.NettyChannelBuilder;
@@ -14,8 +14,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import csc435.app.RetrievalProto.*;
-import csc435.app.FileRetrievalGrpc.FileRetrievalBlockingStub;
+import com.sindhoora.distributedsearch.RetrievalProto.*;
+import com.sindhoora.distributedsearch.FileRetrievalGrpc.FileRetrievalBlockingStub;
 
 public class ClientProcessingEngine {
     private ManagedChannel channel;

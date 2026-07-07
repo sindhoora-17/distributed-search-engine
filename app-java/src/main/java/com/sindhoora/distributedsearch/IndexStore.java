@@ -1,4 +1,4 @@
-package csc435.app;
+package com.sindhoora.distributedsearch;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;

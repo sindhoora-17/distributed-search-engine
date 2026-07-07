@@ -1,8 +1,8 @@
-package csc435.app;
+package com.sindhoora.distributedsearch;
 
 import io.grpc.stub.StreamObserver;
-import csc435.app.RetrievalProto.*;
-import csc435.app.FileRetrievalGrpc.FileRetrievalImplBase;
+import com.sindhoora.distributedsearch.RetrievalProto.*;
+import com.sindhoora.distributedsearch.FileRetrievalGrpc.FileRetrievalImplBase;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;

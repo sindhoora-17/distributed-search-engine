@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option java_package = "csc435.app";
+option java_package = "com.sindhoora.distributedsearch";
 option java_outer_classname = "RetrievalProto";
 
 package retrieval;

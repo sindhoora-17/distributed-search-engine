@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>csc435.app</groupId>
+  <groupId>com.sindhoora.distributedsearch</groupId>
   <artifactId>app-java</artifactId>
   <version>1.0-SNAPSHOT</version>
   <build>
@@ -65,7 +65,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>csc435.app.FileRetrievalServer</mainClass>
+                  <mainClass>com.sindhoora.distributedsearch.FileRetrievalServer</mainClass>
                 </transformer>
               </transformers>
             </configuration>
@@ -115,8 +115,8 @@
   </build>
   <properties>
     <maven.compiler.release>11</maven.compiler.release>
-    <protobuf.version>4.29.3</protobuf.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <grpc.version>1.65.1</grpc.version>
+    <protobuf.version>4.29.3</protobuf.version>
   </properties>
 </project>

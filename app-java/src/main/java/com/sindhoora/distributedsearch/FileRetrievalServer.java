@@ -1,4 +1,4 @@
-package csc435.app;
+package com.sindhoora.distributedsearch;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -30,7 +30,7 @@ public class FileRetrievalServer {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         if (args.length != 1) {
-            System.err.println("Usage: java -cp target/app-java-1.0-SNAPSHOT.jar csc435.app.FileRetrievalServer <port>");
+            System.err.println("Usage: java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalServer <port>");
             System.exit(1);
         }
 

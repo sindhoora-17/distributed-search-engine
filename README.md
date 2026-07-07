@@ -2,15 +2,18 @@
 
 ## Overview
 
-Distributed File Retrieval Engine is a distributed document indexing and search system built using Java, gRPC, and Protocol Buffers. The system supports concurrent document indexing across multiple clients and enables distributed keyword-based search over large datasets.
+Distributed File Retrieval Engine is a distributed document indexing and search system built using Java, gRPC, and Protocol Buffers.
 
-The project implements:
+The system enables multiple clients to process large document collections concurrently, build local indexes, and communicate with a central server that maintains a global searchable index.
 
-- Client-server distributed architecture
-- Concurrent indexing workflows
-- gRPC-based remote procedure calls
-- Protocol Buffers message serialization
+Key engineering features:
+
+- Distributed client-server architecture
+- Concurrent document indexing
+- Remote communication using gRPC
+- Efficient data serialization with Protocol Buffers
 - Multithreaded request processing
+- Thread-safe global index management
 - Benchmarking and throughput evaluation
 
 ---
@@ -31,12 +34,9 @@ The project implements:
 ## Project Structure
 
 ```text
-## Project Structure
-
-```text
 distributed-file-retrieval-engine/
 ├── app-java/
-│   ├── src/main/java/csc435/app/
+│   ├── src/main/java/com/sindhoora/distributedsearch/
 │   ├── src/main/proto/
 │   └── pom.xml
 ├── datasets/
@@ -49,50 +49,57 @@ distributed-file-retrieval-engine/
 
 ## Requirements
 
-The project requires:
-
-- Java 21+
+- Java 11+
 - Maven 3.8+
 
-Install Java and Maven on Ubuntu using:
+Install Java and Maven:
 
 ```bash
-sudo apt install openjdk-21-jdk maven
+sudo apt install openjdk-11-jdk maven
 ```
 
 ---
 
 ## Datasets
 
-Large benchmarking datasets used during performance evaluation are not included in this repository due to size limitations.
+Large datasets used during benchmarking are not included in this repository due to size limitations.
 
-A small sample dataset is provided inside:
+A small sample dataset is provided:
 
 ```text
 datasets/sample_data/
 ```
 
-You can replace the sample dataset with any text-based document collection for indexing and search evaluation.
+You can replace it with any text document collection for indexing and search testing.
 
 ---
 
 ## System Architecture
 
-The system follows a distributed client-server architecture:
+The application follows a distributed client-server architecture:
 
-- Clients compute local term frequencies from assigned document collections.
-- Partial indexes are transmitted to the server using gRPC.
-- The server maintains a global inverted index for distributed search operations.
-- Concurrent indexing and search requests are handled using multithreaded processing and thread-safe data structures.
+1. Clients scan assigned document collections.
+2. Each client computes local word frequency indexes.
+3. Index data is sent to the server using gRPC.
+4. The server combines client results into a global inverted index.
+5. Search queries are executed against the distributed index.
+
+The server supports concurrent requests using multithreading and thread-safe data structures.
 
 ---
 
 ## Build Instructions
 
+Navigate into the Java application:
+
 ```bash
 cd app-java
-mvn compile
-mvn package
+```
+
+Build:
+
+```bash
+mvn clean package
 ```
 
 ---
@@ -102,65 +109,79 @@ mvn package
 ### Start the Server
 
 ```bash
-java -cp target/distributed-file-retrieval-engine-1.0-SNAPSHOT.jar app.FileRetrievalServer 50051
+java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalServer 50051
 ```
 
-### Start the Client
+---
+
+### Start a Client
+
+Open another terminal:
 
 ```bash
-java -cp target/distributed-file-retrieval-engine-1.0-SNAPSHOT.jar app.FileRetrievalClient
+java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalClient
 ```
 
-Supported client commands:
+Available commands:
 
 ```text
-connect | get_info | index | search | quit
-```
-
-### Run the Benchmark
-
-```bash
-java -cp target/distributed-file-retrieval-engine-1.0-SNAPSHOT.jar app.FileRetrievalBenchmark localhost 50051 <number_of_clients> [<dataset_path>]
-```
-
-### Fix OutOfMemoryError
-
-```bash
-java -Xmx2G -cp target/distributed-file-retrieval-engine-1.0-SNAPSHOT.jar app.FileRetrievalServer 50051
+connect
+get_info
+index
+search
+quit
 ```
 
 ---
 
 ## Example Workflow
 
-### Start the Server
+Connect to server:
 
-```bash
-java -cp target/distributed-file-retrieval-engine-1.0-SNAPSHOT.jar app.FileRetrievalServer 50051
+```text
+connect localhost 50051
 ```
 
-### Connect Clients
+Index documents:
 
-```bash
-java -cp target/distributed-file-retrieval-engine-1.0-SNAPSHOT.jar app.FileRetrievalClient
-> connect localhost 50051
+```text
+index ../datasets/sample_data
 ```
 
-### Index Documents
+Search:
 
-```bash
-> index ../datasets/sample_data
+```text
+search child-like
+search distortion AND adaptation
 ```
 
-### Search Documents
+---
+
+## Benchmarking
+
+Run automated benchmark tests:
 
 ```bash
-> search child-like
-> search distortion AND adaptation
+java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalBenchmark localhost 50051 4 ../datasets/sample_data
+```
+
+---
+
+## Handling Large Datasets
+
+For very large datasets, increase JVM memory:
+
+```bash
+java -Xmx2G -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalServer 50051
 ```
 
 ---
 
 ## Performance
 
-The system was benchmarked on datasets exceeding 2GB and demonstrated improved throughput using concurrent distributed clients and multithreaded indexing workflows.
+The system was tested with datasets exceeding 2GB and demonstrated improved throughput through:
+
+- Parallel client processing
+- Multithreaded indexing
+- Distributed workload execution
+- Optimized gRPC communication
