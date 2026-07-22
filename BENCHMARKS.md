@@ -32,3 +32,12 @@ java -cp target/app-java-1.0-SNAPSHOT.jar \
 | 4           |  2000 files |    0.665 s     |      34.56        |
 | 8           |  2000 files |    0.701 s     |      32.76        |
 
+Throughput improves ~1.6x from 1 to 4 clients, then plateaus (and slightly
+regresses) at 8. The single central server merging all client streams is the
+bottleneck: past ~4 concurrent clients, the shared merge path and single-machine
+CPU contention outweigh the gain from more clients. Scaling further would mean
+partitioning (sharding) the index across multiple server nodes.
+
+> Single run per client count. For a sturdier figure, run each N several times
+> and take the median — the scaling *shape* (rises to 4, plateaus after) is the
+> stable result.
