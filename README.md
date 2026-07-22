@@ -1,187 +1,144 @@
-# Distributed File Retrieval Engine
+# Distributed Inverted-Index Search Engine
 
-## Overview
+> A hands-on distributed systems project: build a search index across many
+> clients, keep it correct under concurrent writes, and measure where it stops
+> scaling.
 
-Distributed File Retrieval Engine is a distributed document indexing and search system built using Java, gRPC, and Protocol Buffers.
+A distributed document indexing and search system in Java. Multiple clients
+tokenize document collections **in parallel** and stream per-document term
+frequencies to a central gRPC server, which merges them into a **thread-safe
+global inverted index** that serves boolean (AND / OR) search queries.
 
-The system enables multiple clients to process large document collections concurrently, build local indexes, and communicate with a central server that maintains a global searchable index.
+## Architecture
 
-Key engineering features:
-
-- Distributed client-server architecture
-- Concurrent document indexing
-- Remote communication using gRPC
-- Efficient data serialization with Protocol Buffers
-- Multithreaded request processing
-- Thread-safe global index management
-- Benchmarking and throughput evaluation
-
----
-
-## Technologies
-
-- Java
-- gRPC
-- Protocol Buffers
-- Maven
-- ConcurrentHashMap
-- Multithreading
-- Client-Server Architecture
-- Distributed Systems
-
----
-
-## Project Structure
-
-```text
-distributed-file-retrieval-engine/
-├── app-java/
-│   ├── src/main/java/com/sindhoora/distributedsearch/
-│   ├── src/main/proto/
-│   └── pom.xml
-├── datasets/
-│   └── sample_data/
-├── README.md
-└── .gitignore
+```
+   ┌───────────┐   ┌───────────┐   ┌───────────┐
+   │ Client 1  │   │ Client 2  │   │ Client N  │   each indexes a DISJOINT
+   │ tokenize  │   │ tokenize  │   │ tokenize  │   slice of the corpus
+   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
+         │  StreamIndex  │  (client-streaming gRPC)
+         │  one stream   │               │
+         └───────────────┼───────────────┘
+                         ▼
+              ┌──────────────────────┐
+              │  gRPC Server         │
+              │  ServerProcessing-   │
+              │  Engine              │
+              │                      │
+              │  IndexStore          │  ConcurrentHashMap + AtomicInteger
+              │  (global inverted    │  lock-free doc IDs,
+              │   index)             │  synchronized postings lists
+              └──────────┬───────────┘
+                         ▲
+                         │  ComputeSearch (unary)  AND / OR
+                    ┌────┴────┐
+                    │ Query   │
+                    └─────────┘
 ```
 
----
+## Key engineering points
 
-## Requirements
+- **Client-streaming indexing.** Each client opens a single `StreamIndex` RPC and
+  streams one message per document, instead of a blocking round-trip per file.
+  This removes N network round-trips per client on the index path.
+- **Thread-safe global index.** `IndexStore` uses `ConcurrentHashMap`, lock-free
+  document-ID assignment (`AtomicInteger` + `computeIfAbsent`), and synchronized
+  postings lists — no global lock on the write path. Verified by concurrency tests.
+- **Boolean queries.** AND (intersection) and OR (union), ranked by summed term
+  frequency.
+- **Honest benchmark.** The corpus is partitioned into disjoint slices, one per
+  client, so N clients index *different* files — real distributed indexing, not
+  the same folder N times.
 
-- Java 11+
-- Maven 3.8+
+## Results
 
-Install Java and Maven:
+Benchmarked indexing throughput from 1 to 8 concurrent clients over a
+partitioned ~23 MB corpus:
 
-```bash
-sudo apt install openjdk-11-jdk maven
+| Clients | Index time | Throughput |
+|---------|-----------|------------|
+| 1       | 1.06 s    | 21.7 MB/s  |
+| 2       | 0.76 s    | 30.2 MB/s  |
+| 4       | 0.67 s    | 34.6 MB/s  |
+| 8       | 0.70 s    | 32.8 MB/s  |
+
+Throughput improves ~1.6x and peaks at 4 clients, then plateaus as the single
+server's merge path becomes the bottleneck — which is where the design would
+need index sharding to scale further.
+
+> Note: benchmarks were run with the server and all clients on a single machine,
+> so these numbers measure concurrent-client scaling, not cross-network
+> performance.
+
+## Project structure
+
+```
+app-java/src/main/
+├── proto/retrieval.proto            gRPC service + message definitions
+└── java/com/sindhoora/distributedsearch/
+    ├── IndexStore.java              thread-safe global inverted index (the core)
+    ├── ServerProcessingEngine.java  gRPC handlers: streaming index + AND/OR search
+    ├── ClientProcessingEngine.java  client-side streaming + query logic
+    ├── FileRetrievalServer.java     server entry point
+    ├── FileRetrievalClient.java     interactive CLI client
+    └── FileRetrievalBenchmark.java  partitioned concurrent-client benchmark
+app-java/src/test/                   IndexStoreTest — concurrency correctness tests
 ```
 
----
+Start with `IndexStore.java` (the concurrency design) and
+`ServerProcessingEngine.java` (the streaming index handler) — that's where the
+interesting work is.
 
-## Datasets
+## Tech
 
-Large datasets used during benchmarking are not included in this repository due to size limitations.
+Java 11+ · gRPC · Protocol Buffers · Maven · JUnit 5
 
-A small sample dataset is provided:
-
-```text
-datasets/sample_data/
-```
-
-You can replace it with any text document collection for indexing and search testing.
-
----
-
-## System Architecture
-
-The application follows a distributed client-server architecture:
-
-1. Clients scan assigned document collections.
-2. Each client computes local word frequency indexes.
-3. Index data is sent to the server using gRPC.
-4. The server combines client results into a global inverted index.
-5. Search queries are executed against the distributed index.
-
-The server supports concurrent requests using multithreading and thread-safe data structures.
-
----
-
-## Build Instructions
-
-Navigate into the Java application:
+## Build
 
 ```bash
 cd app-java
-```
-
-Build:
-
-```bash
 mvn clean package
 ```
 
----
+Runs the concurrency test suite and produces a shaded jar in `target/`.
 
-## Running the Application
+## Run
 
-### Start the Server
+Start the server:
 
 ```bash
 java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalServer 50051
 ```
 
----
-
-### Start a Client
-
-Open another terminal:
+Interactive client (in another terminal):
 
 ```bash
 java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalClient
+> connect localhost 50051
+> index ../datasets/sample_data
+> search distributed system          # AND
+> search_or vortex adaptation         # OR
+> quit
 ```
 
-Available commands:
+## Benchmark
 
-```text
-connect
-get_info
-index
-search
-quit
-```
-
----
-
-## Example Workflow
-
-Connect to server:
-
-```text
-connect localhost 50051
-```
-
-Index documents:
-
-```text
-index ../datasets/sample_data
-```
-
-Search:
-
-```text
-search child-like
-search distortion AND adaptation
-```
-
----
-
-## Benchmarking
-
-Run automated benchmark tests:
+Generate a reproducible corpus, then run the partitioned benchmark:
 
 ```bash
-java -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalBenchmark localhost 50051 4 ../datasets/sample_data
+python3 scripts/make_dataset.py datasets/bench 2000 1500   # 2000 files
+java -cp target/app-java-1.0-SNAPSHOT.jar \
+  com.sindhoora.distributedsearch.FileRetrievalBenchmark localhost 50051 4 datasets/bench
 ```
 
----
+See [BENCHMARKS.md](BENCHMARKS.md) for full methodology and results.
 
-## Handling Large Datasets
-
-For very large datasets, increase JVM memory:
+## Tests
 
 ```bash
-java -Xmx2G -cp target/app-java-1.0-SNAPSHOT.jar com.sindhoora.distributedsearch.FileRetrievalServer 50051
+mvn test
 ```
 
----
-
-## Performance
-
-The system was tested with datasets exceeding 2GB and demonstrated improved throughput through:
-
-- Parallel client processing
-- Multithreaded indexing
-- Distributed workload execution
-- Optimized gRPC communication
+`IndexStoreTest` verifies the index stays correct under concurrent writes:
+unique document IDs under contention, stable IDs for repeated paths, and no lost
+postings when many threads append to the same term.

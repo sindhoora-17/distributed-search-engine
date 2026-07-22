@@ -1,112 +1,86 @@
 package com.sindhoora.distributedsearch;
 
+import com.sindhoora.distributedsearch.RetrievalProto.QueryMode;
 import com.sindhoora.distributedsearch.RetrievalProto.SearchResult;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.*;
+import java.util.concurrent.*;
 
+/**
+ * Benchmarks distributed indexing throughput.
+ *
+ * The corpus is listed once and PARTITIONED into disjoint slices, one per client,
+ * so N clients index DIFFERENT files concurrently (true distributed indexing)
+ * rather than all indexing the same folder.
+ */
 public class FileRetrievalBenchmark {
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
-            System.err.println(
-                "Usage: java -cp target/app-java-1.0-SNAPSHOT.jar " +
-                "com.sindhoora.distributedsearch.FileRetrievalBenchmark " +
-                "<server_ip> <port> <num_clients> <dataset_path1> [<dataset_path2> ...]"
-            );
+            System.err.println("Usage: FileRetrievalBenchmark <server_ip> <port> <num_clients> <dataset_path>");
             System.exit(1);
         }
-
         String serverIp = args[0];
         int serverPort = Integer.parseInt(args[1]);
         int numClients = Integer.parseInt(args[2]);
-        List<String> datasetPaths = Arrays.asList(args).subList(3, args.length);
+        String datasetPath = args[3];
+        Path basePath = Paths.get(datasetPath).toAbsolutePath().normalize();
+
+        // List the corpus once, then partition round-robin into N disjoint slices.
+        ClientProcessingEngine lister = new ClientProcessingEngine();
+        List<Path> allFiles = lister.listTextFiles(datasetPath);
+        if (allFiles.isEmpty()) {
+            System.err.println("No .txt files found under " + datasetPath);
+            System.exit(1);
+        }
+        List<List<Path>> partitions = new ArrayList<>();
+        for (int i = 0; i < numClients; i++) partitions.add(new ArrayList<>());
+        for (int i = 0; i < allFiles.size(); i++) partitions.get(i % numClients).add(allFiles.get(i));
 
         long totalBytes = 0;
-        for (String path : datasetPaths) {
-            try (var stream = Files.walk(Paths.get(path))) {
-                List<Path> files = stream
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.toString().toLowerCase().endsWith(".txt"))
-                    .filter(p -> !p.getFileName().toString().startsWith("."))
-                    .collect(Collectors.toList());
+        for (Path p : allFiles) totalBytes += java.nio.file.Files.size(p);
 
-                for (Path p : files) {
-                    totalBytes += Files.size(p);
-                }
-            }
-        }
+        System.out.printf("Corpus: %d files, %.2f MB, across %d clients%n",
+                allFiles.size(), totalBytes / (1024.0 * 1024.0), numClients);
 
         ExecutorService executor = Executors.newFixedThreadPool(numClients);
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
 
+        List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < numClients; i++) {
-            String datasetPath = datasetPaths.get(i % datasetPaths.size());
-
-            executor.submit(() -> {
+            final List<Path> slice = partitions.get(i);
+            futures.add(executor.submit(() -> {
                 ClientProcessingEngine engine = new ClientProcessingEngine();
-
                 if (engine.connect(serverIp, serverPort)) {
-                    engine.indexFolder(datasetPath);
+                    engine.indexFiles(slice, basePath);
                     engine.disconnect();
                 }
-            });
+            }));
         }
+        for (Future<?> f : futures) f.get();  // surface any worker exception
 
         executor.shutdown();
         executor.awaitTermination(1, TimeUnit.HOURS);
+        double seconds = (System.nanoTime() - startTime) / 1_000_000_000.0;
 
-        long endTime = System.currentTimeMillis();
-        double seconds = (endTime - startTime) / 1000.0;
+        double mb = totalBytes / (1024.0 * 1024.0);
+        System.out.printf("Indexed %.2f MB in %.3f s  (%.2f MB/s)%n", mb, seconds, mb / seconds);
 
-        System.out.println("Completed indexing " + totalBytes + " bytes of data");
-        System.out.printf("Completed indexing in %.3f seconds%n", seconds);
-
+        // Sanity-check a few queries.
         ClientProcessingEngine searchEngine = new ClientProcessingEngine();
-
         if (searchEngine.connect(serverIp, serverPort)) {
             List<List<String>> queries = Arrays.asList(
-                Arrays.asList("the"),
-                Arrays.asList("child-like"),
-                Arrays.asList("vortex"),
-                Arrays.asList("moon", "vortex"),
-                Arrays.asList("distortion", "adaptation")
-            );
-
+                    Arrays.asList("distributed"),
+                    Arrays.asList("system", "network"),
+                    Arrays.asList("vortex", "adaptation"));
             for (List<String> terms : queries) {
-                String queryDisplay = String.join(" AND ", terms);
-
-                System.out.println("Searching: " + queryDisplay);
-
-                long searchStart = System.currentTimeMillis();
-                List<SearchResult> results = searchEngine.search(terms);
-                int totalResultCount = searchEngine.getSearchResultCount(terms);
-                long searchEnd = System.currentTimeMillis();
-
-                double searchSeconds = (searchEnd - searchStart) / 1000.0;
-
-                System.out.printf("Search completed in %.3f seconds%n", searchSeconds);
-                System.out.printf("Search results (top 10 out of %d):%n", totalResultCount);
-
-                for (SearchResult result : results) {
-                    String[] pathParts = result.getDocumentPath().split(":", 2);
-                    String clientId = pathParts[0];
-                    String docPath = pathParts.length > 1 ? pathParts[1] : "";
-
-                    System.out.printf(
-                        "* client %s:%s:%d%n",
-                        clientId,
-                        docPath,
-                        result.getFrequency()
-                    );
-                }
+                long s = System.nanoTime();
+                List<SearchResult> results = searchEngine.search(terms, QueryMode.AND);
+                int count = searchEngine.getSearchResultCount(terms, QueryMode.AND);
+                double ms = (System.nanoTime() - s) / 1_000_000.0;
+                System.out.printf("search %-30s -> %d hits in %.2f ms%n",
+                        String.join(" AND ", terms), count, ms);
             }
-
             searchEngine.disconnect();
         }
     }

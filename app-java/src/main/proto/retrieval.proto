@@ -7,7 +7,11 @@ package retrieval;
 
 service FileRetrieval {
   rpc Register (RegisterRequest) returns (RegisterResponse);
-  rpc ComputeIndex (IndexRequest) returns (IndexResponse);
+
+  // Client-streaming: a client streams one IndexDocument per file and the
+  // server replies once, after the stream completes, with a summary.
+  rpc StreamIndex (stream IndexDocument) returns (IndexSummary);
+
   rpc ComputeSearch (SearchRequest) returns (SearchResponse);
 }
 
@@ -18,18 +22,27 @@ message RegisterResponse {
   string client_id = 1;
 }
 
-message IndexRequest {
+// One document's worth of work, streamed to the server.
+message IndexDocument {
   string client_id = 1;
   string document_path = 2;
   map<string, int32> word_frequencies = 3;
 }
 
-message IndexResponse {
-  string acknowledgement = 1;
+// Sent once by the server after the client finishes streaming.
+message IndexSummary {
+  int32 documents_indexed = 1;
+  int64 terms_indexed = 2;
+}
+
+enum QueryMode {
+  AND = 0;  // default: doc must contain every term
+  OR = 1;   // doc must contain at least one term
 }
 
 message SearchRequest {
   repeated string terms = 1;
+  QueryMode mode = 2;
 }
 
 message SearchResult {
