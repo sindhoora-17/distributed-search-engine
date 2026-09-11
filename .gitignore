@@ -9,6 +9,7 @@ app-java/target/
 app-cpp/build/
 *.class
 *.jar
+app-java/dependency-reduced-pom.xml
 
 # Language servers / IDE
 .metals/
